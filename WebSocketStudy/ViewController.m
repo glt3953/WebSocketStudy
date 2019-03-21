@@ -33,7 +33,7 @@
 
 @end
 
-@interface ViewController () <SRWebSocketDelegate, UITextViewDelegate>
+@interface ViewController () <UITableViewDelegate, UITableViewDataSource, SRWebSocketDelegate, UITextViewDelegate>
 
 @property (nonatomic, strong) SRWebSocket *webSocket;
 @property (nonatomic, strong) NSMutableArray<TCMessage *> *messages;
@@ -48,6 +48,24 @@
     // Do any additional setup after loading the view, typically from a nib.
     
     _messages = [[NSMutableArray alloc] init];
+    
+    CGFloat headerHeight = 44 + 20;
+    CGRect frame = self.view.frame;
+    frame.origin.y += headerHeight;
+    frame.size.height -= headerHeight;
+    CGFloat buttonHeight = 44;
+    UIButton *connectButton = [[UIButton alloc] initWithFrame:(CGRect){frame.origin, frame.size.width, buttonHeight}];
+    [connectButton setTitle:@"发送消息" forState:UIControlStateNormal];
+    [connectButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+    [connectButton addTarget:self action:@selector(reconnect:) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:connectButton];
+    
+    frame.origin.y += buttonHeight;
+    frame.size.height -= buttonHeight;
+    _tableView = [[UITableView alloc] initWithFrame:frame];
+    _tableView.delegate = self;
+    _tableView.dataSource = self;
+    [self.view addSubview: _tableView];
 }
 
 #pragma mark - Actions
@@ -55,7 +73,8 @@
     _webSocket.delegate = nil;
     [_webSocket close];
     
-    _webSocket = [[SRWebSocket alloc] initWithURL:[NSURL URLWithString:@"wss://echo.websocket.org"]];
+    NSString *urlString = @"wss://echo.websocket.org"; //@"http://localhost:9000/", @"wss://echo.websocket.org"
+    _webSocket = [[SRWebSocket alloc] initWithURL:[NSURL URLWithString:urlString]];
     _webSocket.delegate = self;
     
     self.title = @"Opening Connection...";
@@ -81,11 +100,19 @@
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     TCMessage *message = _messages[indexPath.row];
     
-    TCChatCell *cell = [self.tableView dequeueReusableCellWithIdentifier:message.incoming ? @"ReceivedCell" : @"SentCell"
-                                                            forIndexPath:indexPath];
+//    TCChatCell *cell = [self.tableView dequeueReusableCellWithIdentifier:message.incoming ? @"ReceivedCell" : @"SentCell" forIndexPath:indexPath];
+//    TCChatCell *cell = [self.tableView dequeueReusableCellWithIdentifier:@"TCChatCell"];
+//
+//    cell.textView.text = message.message;
+//    cell.nameLabel.text = message.incoming ? @"Other" : @"Me";
     
-    cell.textView.text = message.message;
-    cell.nameLabel.text = message.incoming ? @"Other" : @"Me";
+    UITableViewCell *cell = [self.tableView dequeueReusableCellWithIdentifier:@"UITableViewCell"];
+    if (!cell) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"UITableViewCell"];
+    }
+    cell.textLabel.text = message.incoming ? @"Other" : @"Me";
+    cell.textLabel.text = message.message;
+    cell.detailTextLabel.textColor = [UIColor blackColor];
     
     return cell;
 }
@@ -94,6 +121,7 @@
 - (void)webSocketDidOpen:(SRWebSocket *)webSocket {
     NSLog(@"Websocket Connected");
     self.title = @"Connected!";
+    [_webSocket send:@"你好"];
 }
 
 - (void)webSocket:(SRWebSocket *)webSocket didFailWithError:(NSError *)error {
@@ -117,6 +145,12 @@
 - (void)webSocket:(SRWebSocket *)webSocket didReceivePong:(NSData *)pongPayload {
     NSLog(@"WebSocket received pong");
 }
+
+- (void)webSocket:(SRWebSocket *)webSocket didReceiveMessage:(id)message {
+    NSLog(@"Received \"%@\"", message);
+    [self addMessage:[[TCMessage alloc] initWithMessage:message incoming:YES]];
+}
+
 
 #pragma mark - UITextViewDelegate
 - (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text {
