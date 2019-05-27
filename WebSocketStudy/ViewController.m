@@ -55,8 +55,9 @@
     frame.size.height -= headerHeight;
     CGFloat buttonHeight = 44;
     UIButton *connectButton = [[UIButton alloc] initWithFrame:(CGRect){frame.origin, frame.size.width, buttonHeight}];
+    [connectButton setBackgroundColor:[UIColor blueColor]];
     [connectButton setTitle:@"发送消息" forState:UIControlStateNormal];
-    [connectButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+    [connectButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     [connectButton addTarget:self action:@selector(reconnect:) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:connectButton];
     
@@ -68,12 +69,26 @@
     [self.view addSubview: _tableView];
 }
 
+- (NSString *)toJSONData:(id)theData {
+    NSError *error = nil;
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:theData
+                                                       options:NSJSONWritingPrettyPrinted
+                                                         error:&error];
+    
+    if ([jsonData length] > 0 && error == nil) {
+        return [[NSString alloc] initWithData:jsonData
+                                     encoding:NSUTF8StringEncoding];
+    } else {
+        return @"";
+    }
+}
+
 #pragma mark - Actions
 - (IBAction)reconnect:(id)sender {
     _webSocket.delegate = nil;
     [_webSocket close];
     
-    NSString *urlString = @"wss://echo.websocket.org"; //@"http://localhost:9000/", @"wss://echo.websocket.org"
+    NSString *urlString = @"ws://10.86.90.23:8089"; //@"ws://10.86.90.23:8089", @"http://localhost:9000/", @"wss://echo.websocket.org"
     _webSocket = [[SRWebSocket alloc] initWithURL:[NSURL URLWithString:urlString]];
     _webSocket.delegate = self;
     
@@ -121,7 +136,9 @@
 - (void)webSocketDidOpen:(SRWebSocket *)webSocket {
     NSLog(@"Websocket Connected");
     self.title = @"Connected!";
-    [_webSocket send:@"你好"];
+    NSDictionary *optDict = @{@"opt":@"START", @"asr_param":@{@"pid":@10005, @"app_name":@"com.didi.speech.zj", @"middle_result":@0, @"rate":@8}, @"app_param":@{@"os":@"iOS"}};
+    [_webSocket send:[self toJSONData:optDict]];
+//    [_webSocket send:@"你好"];
 }
 
 - (void)webSocket:(SRWebSocket *)webSocket didFailWithError:(NSError *)error {
